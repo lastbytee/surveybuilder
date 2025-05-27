@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Create Survey{% endblock %}
+{% block content %}
+
+<style>
+  .survey-component {
+    position: relative;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  }
+  .delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+  }
+  .toolbox button {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  .star {
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+  .star.checked {
+    color: gold;
+  }
+  @media (max-width: 768px) {
+    .toolbox {
+      margin-bottom: 2rem;
+    }
+  }
+</style>
+
+<div class="container py-5">
+  <div id="alert-container"></div>
+  <div class="row">
+    <div class="col-md-4 col-12 mb-4 mb-md-0">
+      <div class="toolbox p-3 border rounded bg-light">
+        <h5 class="mb-3 text-success text-center">Add Components</h5>
+        {% for type, label in components %}
+          <button class="btn btn-outline-primary" onclick="addComponent('{{ type }}')">{{ label }}</button>
+        {% endfor %}
+        <button type="button" class="btn btn-success mt-3" onclick="saveSurvey()">Save Survey</button>
+        <button type="button" class="btn btn-primary w-100" onclick="shareSurvey()">
+          <i class="bi bi-share-fill"></i> Share
+        </button>
+      </div>
+    </div>
+
+    <div class="col-md-8 col-12">
+      <form id="survey-form" method="POST" action="">
+        {% csrf_token %}
+        
+        <!-- Province Selection -->
+        <div class="mb-3">
+          <label for="province" class="form-label fw-semibold">Province</label>
+          <select id="province" class="form-select">
+            <option value="">Select Province</option>
+            <option value="Eastern">Eastern</option>
+            <option value="Western">Western</option>
+            <option value="Kigali">Kigali</option>
+            <option value="Northern">Northern</option>
+            <option value="Southern">Southern</option>
+          </select>
+        </div>
+
+        <!-- Location Input -->
+        <div class="mb-3">
+          <label for="location" class="form-label fw-semibold">Location</label>
+          <input type="text" id="location" class="form-control" placeholder="Enter specific location (e.g., Nyagatare, Musanze)">
+        </div>
+
+        <div class="mb-4">
+          <h2 contenteditable="true" id="survey-title" class="mb-2 border-bottom pb-1 text-success" style="overflow: hidden;">Survey Title</h2>
+          <p contenteditable="true" id="survey-description" class="text-muted" style="overflow: hidden;">Click here to edit the description...</p>
+        </div>
+
+        <div id="components"></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if initial_data %}
+{{ initial_data|json_script:"initial-survey-data" }}
+{% endif %}
+
+<script>
+function showAlert(message, type = 'success') {
+  const alertId = `alert-${Date.now()}`;
+  const alertHTML = `
+    <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>`;
+  document.getElementById('alert-container').innerHTML = alertHTML;
+  setTimeout(() => {
+    const alertEl = document.getElementById(alertId);
+    if (alertEl) alertEl.classList.remove('show');
+  }, 3000);
+}
+
+let componentId = 0;
+function addComponent(type) {
+  const id = `component-${componentId++}`;
+  const base = `
+    <div class='survey-component' id='${id}'>
+      <button class='btn btn-sm btn-danger delete-btn' onclick='this.parentElement.remove()'>Delete</button>
+      <input class='form-control mb-2' placeholder='Field Label' name='label'>
+      <div class='form-check mb-2'>
+        <input type='checkbox' class='form-check-input' name='required'>
+        <label class='form-check-label'>Required</label>
+      </div>
+      <input type='hidden' name='type' value='${type}'>`;
+  let extra = '';
+  if (type === 'text') extra = `<input class='form-control' placeholder='Short answer'>`;
+  else if (type === 'textarea') extra = `<textarea class='form-control' rows='3' placeholder='Long answer'></textarea>`;
+  else if (["dropdown", "checkbox", "radio"].includes(type)) {
+    extra = `
+      <input name='choices' class='form-control mt-2' placeholder='Choices (comma separated)' oninput='updatePreview(this, "${type}")'>
+      <div class='preview mt-2 small text-muted'></div>`;
+  } else if (type === 'rating') {
+    extra = `<div class='d-flex mt-2' data-rating='0'>${'★'.repeat(5).split('').map((s, i) => `<span class='star text-secondary' onclick='setRating(this)' data-index='${i+1}'>${s}</span>`).join('')}</div>`;
+  } else if (type === 'yesno') {
+    extra = `
+      <div class='form-check'><input type='radio' class='form-check-input' name='${id}'><label class='form-check-label'>Yes</label></div>
+      <div class='form-check'><input type='radio' class='form-check-input' name='${id}'><label class='form-check-label'>No</label></div>`;
+  } else if (type === 'date') extra = `<input type='date' class='form-control mt-2'>`;
+  document.getElementById('components').insertAdjacentHTML('beforeend', base + extra + '</div>');
+}
+
+function updatePreview(input, type) {
+  const preview = input.nextElementSibling;
+  const options = input.value.split(',').map(x => x.trim()).filter(x => x);
+  preview.innerHTML = options.map((opt, i) => {
+    if (type === 'dropdown') return `<option>${opt}</option>`;
+    const t = type === 'checkbox' ? 'checkbox' : 'radio';
+    return `<div class='form-check'><input type='${t}' class='form-check-input' id='opt-${i}'><label class='form-check-label' for='opt-${i}'>${opt}</label></div>`;
+  }).join('');
+}
+
+function setRating(el) {
+  const stars = el.parentNode.querySelectorAll('.star');
+  const idx = parseInt(el.dataset.index);
+  stars.forEach((s, i) => s.classList.toggle('checked', i < idx));
+  el.parentNode.dataset.rating = idx;
+}
+
+function saveSurvey() {
+  const title = document.getElementById('survey-title')?.innerText?.trim();
+  const description = document.getElementById('survey-description')?.innerText?.trim();
+  const province = document.getElementById('province')?.value;
+  const location = document.getElementById('location')?.value;
+
+  if (!title) {
+    showAlert("Survey title is required", "warning");
+    return;
+  }
+
+  const components = [...document.querySelectorAll('.survey-component')].map(el => {
+    const type = el.querySelector('[name=type]').value;
+    const label = el.querySelector('[name=label]').value;
+    const required = el.querySelector('[name=required]').checked;
+    let options = null;
+    if (["dropdown", "checkbox", "radio"].includes(type)) {
+      const input = el.querySelector('input[name="choices"]');
+      if (input) {
+        options = input.value.split(',').map(opt => opt.trim()).filter(opt => opt);
+      }
+    } else if (type === 'rating') {
+      const rating = el.querySelector('[data-rating]');
+      options = { max: 5, value: rating.dataset.rating };
+    } else if (type === 'yesno') {
+      options = ['Yes', 'No'];
+    }
+    return { type, label, required, options };
+  });
+
+  fetch(window.location.href, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+    },
+    body: JSON.stringify({ title, description, province, location, fields: components })
+  }).then(response => {
+    if (response.ok) {
+      showAlert("Survey saved successfully", "success");
+      setTimeout(() => {
+        window.location.href = "/dashboard/";
+      }, 1500);
+    } else {
+      showAlert("Failed to save survey", "danger");
+    }
+  }).catch(err => {
+    console.error(err);
+    showAlert("Error occurred while saving", "danger");
+  });
+}
+
+function shareSurvey() {
+  navigator.clipboard.writeText(window.location.href)
+    .then(() => showAlert('Survey link copied!', 'info'))
+    .catch(() => showAlert('Failed to copy link', 'danger'));
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const dataElement = document.getElementById('initial-survey-data');
+  if (dataElement) {
+    window.initialSurveyData = JSON.parse(dataElement.textContent);
+  }
+
+  if (window.initialSurveyData) {
+    document.getElementById('survey-title').innerText = window.initialSurveyData.title;
+    document.getElementById('survey-description').innerText = window.initialSurveyData.description;
+    for (const field of window.initialSurveyData.fields) {
+      addComponent(field.type);
+      const last = document.querySelectorAll('.survey-component').item(-1);
+      last.querySelector('[name=label]').value = field.label;
+      last.querySelector('[name=required]').checked = field.required;
+
+      if (["dropdown", "checkbox", "radio"].includes(field.type)) {
+        const choiceInput = last.querySelector('input[name=choices]');
+        choiceInput.value = (field.options || []).join(', ');
+        updatePreview(choiceInput, field.type);
+      } else if (field.type === 'rating') {
+        const ratingContainer = last.querySelector('[data-rating]');
+        const stars = ratingContainer.querySelectorAll('.star');
+        const ratingValue = parseInt(field.options?.value || 0);
+        stars.forEach((star, index) => {
+          if (index < ratingValue) star.classList.add('checked');
+        });
+        ratingContainer.dataset.rating = ratingValue;
+      }
+    }
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,238 @@
+<!-- Toast notification for link copy -->
+    <div class="position-fixed bottom-0 end-0 p-3">
+        <div id="copyToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    Link copied to clipboard!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="container bg-light">
+    <h1 class="text-success text-center p-3 m-3">Your Surveys</h1>
+    
+    <form method="get" class="row g-3 mb-4">
+    <div class="col-md-3">
+        <input type="text" name="title" class="form-control" placeholder="Filter by Title" value="{{ request.GET.title }}">
+    </div>
+    <div class="col-md-3">
+        <input type="text" name="location" class="form-control" placeholder="Filter by Location" value="{{ request.GET.location }}">
+    </div>
+    <div class="col-md-2">
+        <select name="province" class="form-select">
+            <option value="">Filter by Province</option>
+            {% for code, name in province_choices %}
+                <option value="{{ code }}" {% if request.GET.province == code %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <input type="date" name="date" class="form-control" value="{{ request.GET.date }}">
+    </div>
+    <div class="col-md-2">
+        <button class="btn btn-success w-100" type="submit">Apply Filters</button>
+    </div>
+</form>
+
+    <div class="card p-3 mb-4" style="height: 300px;">
+        <canvas id="surveyChart"></canvas>
+    </div>
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr><th>Title</th><th>Location</th><th>Date</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for survey in surveys %}
+            <tr>
+                <td>{{ survey.title }}</td>
+                <td>{{ survey.location }}</td>
+                <td>{{ survey.created_at.date }}</td>
+                <td>
+                    <a href="{% url 'mysurvey'%}" class="btn btn-sm btn-info">View</a>
+                    <a href="{% url 'edit_survey' survey.id %}" class="btn btn-sm btn-warning">Edit</a>
+                    <form method="post" action="{% url 'delete_survey' survey.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="modal" data-bs-target="#shareModal{{ survey.id }}">
+                        <i class="fas fa-share-alt me-1"></i> Share
+                    </button>
+                    
+                    <!-- Share Modal -->
+                    <div class="modal fade" id="shareModal{{ survey.id }}" tabindex="-1" aria-labelledby="shareModalLabel{{ survey.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header bg-light">
+                                    <h5 class="modal-title" id="shareModalLabel{{ survey.id }}">Share Survey: {{ survey.title }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-4">
+                                        <label for="linkInput{{ survey.id }}" class="form-label fw-bold">Survey Link</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="linkInput{{ survey.id }}" 
+                                                value="{% if request.is_secure %}https{% else %}http{% endif %}://{{ request.get_host }}/take/{{ survey.id }}/" readonly>
+                                            <button class="btn btn-primary" onclick="copyLink('{{ survey.id }}')" type="button">
+                                                <i class="fas fa-copy me-1"></i> Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <p class="fw-bold mb-3">Share via</p>
+                                        <div class="d-flex justify-content-center gap-3">
+                                            <a href="#" onclick="shareToSocial('linkedin', '{{ survey.id }}')" class="share-icon-link">
+                                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" class="share-icon">
+                                            </a>
+                                            <a href="#" onclick="shareToSocial('twitter', '{{ survey.id }}')" class="share-icon-link">
+                                                <img src="https://cdn-icons-png.flaticon.com/512/733/733579.png" alt="Twitter" class="share-icon">
+                                            </a>
+                                            <a href="#" onclick="shareToSocial('whatsapp', '{{ survey.id }}')" class="share-icon-link">
+                                                <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" alt="WhatsApp" class="share-icon">
+                                            </a>
+                                            <a href="#" onclick="shareToSocial('email', '{{ survey.id }}')" class="share-icon-link">
+                                                <img src="https://cdn-icons-png.flaticon.com/512/732/732200.png" alt="Email" class="share-icon">
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{% url 'view_responses' survey.id %}" class="btn btn-sm btn-primary">Responses</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <style>
+    .share-icon-link {
+        display: inline-block;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: white;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .share-icon-link:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .share-icon {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+    }
+    
+    /* Toast notification for link copy */
+    .position-fixed {
+        z-index: 1050;
+    }
+</style>
+</div>
+
+<!-- Make sure to include Font Awesome in your base.html for the icons -->
+<!-- <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"> -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const chartLabels = JSON.parse('{{ chart_labels|escapejs }}');
+    const chartData = JSON.parse('{{ chart_data|escapejs }}');
+    
+    const ctx = document.getElementById('surveyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Surveys Created',
+                data: chartData,
+                borderColor: 'green',
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+    
+    function copyLink(id) {
+        const linkInput = document.getElementById(`linkInput${id}`);
+        linkInput.select();
+        document.execCommand('copy');
+        
+        // Show toast notification
+        const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+        toast.show();
+        
+        // Visual feedback on button
+        const copyBtn = linkInput.nextElementSibling;
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+        copyBtn.classList.remove('btn-primary');
+        copyBtn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+            copyBtn.classList.remove('btn-success');
+            copyBtn.classList.add('btn-primary');
+        }, 2000);
+        
+        // For modern browsers (fallback for execCommand which is deprecated)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(linkInput.value);
+        }
+    }
+    
+    function shareToSocial(platform, id) {
+        // Get the actual link from the input field to ensure consistency
+        const linkInput = document.getElementById(`linkInput${id}`);
+        const url = encodeURIComponent(linkInput.value);
+        const surveyTitle = document.querySelector(`#shareModalLabel${id}`).textContent.replace('Share Survey: ', '');
+        const title = encodeURIComponent(`Take my survey: ${surveyTitle}`);
+        const description = encodeURIComponent(`I created this survey and would appreciate your feedback`);
+        let shareUrl;
+        
+        switch (platform) {
+            case 'linkedin':
+                shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+                break;
+            case 'twitter':
+                shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${title}`;
+                break;
+            case 'whatsapp':
+                shareUrl = `https://api.whatsapp.com/send?text=${title}%20${url}`;
+                break;
+            case 'email':
+                shareUrl = `mailto:?subject=${title}&body=${description}%0A%0A${url}`;
+                break;
+        }
+        
+        // Open in new window with proper dimensions
+        const width = 550;
+        const height = 450;
+        const left = (window.innerWidth - width) / 2;
+        const top = (window.innerHeight - height) / 2;
+        
+        window.open(shareUrl, 'share', `toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},top=${top},left=${left}`);
+        
+        // Close the modal after sharing
+        const modalElement = document.getElementById(`shareModal${id}`);
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        modal.hide();
+        
+        return false;
+    }
+</script>
+{% endblock %}

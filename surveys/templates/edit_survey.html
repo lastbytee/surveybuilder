@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+  <h1 class="mb-4 text-center">Edit Survey</h1>
+
+  <form method="post" id="survey-form">
+    {% csrf_token %}
+
+    <div class="mb-3">
+      <label for="title" class="form-label">Survey Title</label>
+      <input type="text" class="form-control" id="title" name="title" value="{{ survey.title }}" required>
+    </div>
+
+    <div class="mb-3">
+      <label for="description" class="form-label">Survey Description</label>
+      <textarea class="form-control" id="description" name="description" rows="3" required>{{ survey.description }}</textarea>
+    </div>
+
+    <hr>
+
+    <h4 class="mt-4">Questions</h4>
+
+    <div id="questions-container">
+      {% for question in questions %}
+        <div class="card mb-3 question-card" data-existing="true" data-question-id="{{ question.id }}">
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Question Label</label>
+              <input type="text" class="form-control" name="question_label_{{ question.id }}" value="{{ question.label }}">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Question Type</label>
+              <select class="form-select" name="question_type_{{ question.id }}">
+                <option value="text" {% if question.question_type == "text" %}selected{% endif %}>Text</option>
+                <option value="multiple_choice" {% if question.question_type == "multiple_choice" %}selected{% endif %}>Multiple Choice</option>
+                <option value="checkbox" {% if question.question_type == "checkbox" %}selected{% endif %}>Checkbox</option>
+                <option value="rating" {% if question.question_type == "rating" %}selected{% endif %}>Rating</option>
+                <option value="dropdown" {% if question.question_type == "dropdown" %}selected{% endif %}>Dropdown</option>
+                <option value="date" {% if question.question_type == "date" %}selected{% endif %}>Date</option>
+                <option value="yes_no" {% if question.question_type == "yes_no" %}selected{% endif %}>Yes/No</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Options (comma separated)</label>
+              <input type="text" class="form-control" name="question_options_{{ question.id }}" value="{% if question.options %}{{ question.options|join:", " }}{% endif %}">
+            </div>
+
+            <button type="button" class="btn btn-danger btn-sm" onclick="deleteQuestion(this)">Delete Question</button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Hidden New Question Template -->
+    <div id="new-question-template" class="card mb-3" style="display: none;">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Question Label</label>
+          <input type="text" class="form-control" name="new_question_label_TEMP_ID">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Question Type</label>
+          <select class="form-select" name="new_question_type_TEMP_ID">
+            <option value="text">Text</option>
+            <option value="multiple_choice">Multiple Choice</option>
+            <option value="checkbox">Checkbox</option>
+            <option value="rating">Rating</option>
+            <option value="dropdown">Dropdown</option>
+            <option value="date">Date</option>
+            <option value="yes_no">Yes/No</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Options (comma separated)</label>
+          <input type="text" class="form-control" name="new_question_options_TEMP_ID">
+        </div>
+
+        <button type="button" class="btn btn-danger btn-sm" onclick="deleteQuestion(this)">Delete Question</button>
+      </div>
+    </div>
+
+    <div class="text-center my-4">
+      <button type="button" class="btn btn-primary" onclick="addNewQuestion()">Add New Question</button>
+    </div>
+
+    <div class="text-center mt-4">
+      <button type="submit" class="btn btn-success">Save Changes</button>
+      <a href="{% url 'mysurvey' %}" class="btn btn-secondary ms-2">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+let newQuestionCount = 0;
+
+function addNewQuestion() {
+  newQuestionCount++;
+
+  const template = document.getElementById('new-question-template').cloneNode(true);
+  template.style.display = 'block';
+  template.id = '';
+
+  template.innerHTML = template.innerHTML.replaceAll('TEMP_ID', newQuestionCount);
+
+  document.getElementById('questions-container').appendChild(template);
+}
+
+function deleteQuestion(button) {
+  const card = button.closest('.card');
+  
+  if (card.dataset.existing === 'true') {
+    // Existing question: mark for deletion
+    const questionId = card.dataset.questionId;
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type = 'hidden';
+    hiddenInput.name = 'delete_question_' + questionId;
+    hiddenInput.value = '1';
+    document.getElementById('survey-form').appendChild(hiddenInput);
+  }
+
+  card.remove();
+}
+</script>
+
+{% endblock %}
