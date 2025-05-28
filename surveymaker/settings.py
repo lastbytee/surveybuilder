@@ -5,7 +5,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-8#5x)_dhcu=lnn-z$_kd%pkd*!4ff@pt5vfwl7q^%03j=k09@z'
 DEBUG = False
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '.onrender.com']
-
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
 INSTALLED_APPS = [
     'surveys',
     'django.contrib.admin',
