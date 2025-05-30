@@ -278,7 +278,7 @@ def login(request):
             user = authenticate(request, username=email, password=password)
             if user is not None:
                 auth_login(request, user)
-                return redirect('dashboard')
+                return redirect('home')
     else:
         form = EmailAuthenticationForm()
     return render(request, 'login.html', {'form': form})
