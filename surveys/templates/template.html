@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container my-5">
+  <h2 class="text-center mb-4 text-success">Create Survey from Template</h2>
+  
+  <form method="post" action="">
+    {% csrf_token %}
+    
+    <!-- Survey Title -->
+    <div class="mb-4">
+      <input type="text" name="survey_title" class="form-control form-control-lg text-center fw-bold text-success"
+             value="Technology Satisfaction Survey" placeholder="Enter Survey Title" required>
+    </div>
+
+    <!-- Province and Location -->
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <input type="text" name="location" class="form-control form-control-md text-center"
+               placeholder="Enter Location (e.g., Nyamirambo)" required>
+      </div>
+      <div class="col-md-6 mb-3">
+        <select name="province" class="form-select text-center" required>
+          <option value="">Select Province</option>
+          <option value="Kigali">Kigali</option>
+          <option value="Northern">Northern</option>
+          <option value="Southern">Southern</option>
+          <option value="Eastern">Eastern</option>
+          <option value="Western">Western</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- Survey Components (left column) -->
+      <div class="col-md-4 mb-4">
+        <h5 class="mb-3 text-center text-success">Survey Components</h5>
+        <div class="list-group">
+          {% for val, label in components %}
+          <button type="button" class="btn btn-outline-primary me-1 mb-1 add-component"
+                  onclick="addQuestion('{{ val }}', '{{ label }}')">
+            {{ label }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Editable Questions (right column) -->
+      <div class="col-md-8">
+        <h5 class="mb-3 text-success text-center">Sample Questions</h5>
+        <div id="questions-area">
+          {% for q in sample_questions %}
+          <div class="card mb-3 question-block">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <input type="text" name="question_label" class="form-control me-2"
+                       value="{{ q.label }}" required placeholder="Question text">
+                <select name="question_type" class="form-select w-auto" required>
+                  {% for val, label in components %}
+                    <option value="{{ val }}" {% if q.question_type == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                <button type="button" class="btn btn-danger ms-2" onclick="this.closest('.question-block').remove()">×</button>
+              </div>
+              <input type="hidden" name="options" value="">
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="mt-3 text-end">
+          <button type="submit" class="btn btn-primary">Save Survey</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- JavaScript to add new questions -->
+<script>
+  function addQuestion(type, label) {
+    const questionHTML = `
+      <div class="card mb-3 question-block">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <input type="text" name="question_label" class="form-control me-2" placeholder="Question text" required>
+            <select name="question_type" class="form-select w-auto" required>
+              {% for val, label in components %}
+                <option value="{{ val }}" ${type === '{{ val }}' ? 'selected' : ''}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="btn btn-danger ms-2" onclick="this.closest('.question-block').remove()">×</button>
+          </div>
+          <input type="hidden" name="options" value="">
+        </div>
+      </div>
+    `;
+    document.getElementById("questions-area").insertAdjacentHTML("beforeend", questionHTML);
+  }
+</script>
+{% endblock %}

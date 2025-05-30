@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Take Survey{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4">{{ survey.title }}</h2>
+    <p>{{ survey.description }}</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {% for question in questions %}
+        <div class="mb-4">
+            <label class="form-label"><strong>{{ question.label }}</strong>{% if question.required %} *{% endif %}</label>
+
+            {% if question.question_type == "text" %}
+                <input type="text" name="q{{ question.id }}" class="form-control" {% if question.required %}required{% endif %}>
+
+            {% elif question.question_type == "textarea" %}
+                <textarea name="q{{ question.id }}" class="form-control" {% if question.required %}required{% endif %}></textarea>
+
+            {% elif question.question_type == "rating" %}
+                <input type="range" name="q{{ question.id }}" min="1" max="5" class="form-range" {% if question.required %}required{% endif %}>
+
+            {% elif question.question_type == "yesno" %}
+                <select name="q{{ question.id }}" class="form-select" {% if question.required %}required{% endif %}>
+                    <option value="">Select...</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                </select>
+
+            {% elif question.question_type == "dropdown" %}
+                <select name="q{{ question.id }}" class="form-select" {% if question.required %}required{% endif %}>
+                    <option value="">Select...</option>
+                    {% for opt in question.split_options %}
+                        <option value="{{ opt }}">{{ opt }}</option>
+                    {% endfor %}
+                </select>
+
+            {% elif question.question_type == "checkbox" %}
+                {% for opt in question.split_options %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="q{{ question.id }}" value="{{ opt }}" id="chk_{{ question.id }}_{{ forloop.counter }}">
+                        <label class="form-check-label" for="chk_{{ question.id }}_{{ forloop.counter }}">{{ opt }}</label>
+                    </div>
+                {% endfor %}
+
+            {% elif question.question_type == "radio" %}
+                {% for opt in question.split_options %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="q{{ question.id }}" value="{{ opt }}" id="radio_{{ question.id }}_{{ forloop.counter }}" {% if question.required %}required{% endif %}>
+                        <label class="form-check-label" for="radio_{{ question.id }}_{{ forloop.counter }}">{{ opt }}</label>
+                    </div>
+                {% endfor %}
+
+            {% elif question.question_type == "date" %}
+                <input type="date" name="q{{ question.id }}" class="form-control" {% if question.required %}required{% endif %}>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+</div>
+{% endblock %}

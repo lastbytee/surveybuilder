@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Responses - {{ survey.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-bold">Responses for "{{ survey.title }}"</h2>
+    <a href="{% url 'export_to_excel' survey.id %}" class="btn btn-success">Export to Excel</a>
+  </div>
+
+  {% if responses %}
+    <!-- Summary Chart -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Overall Responses per Question</h5>
+        <canvas id="responseChart" height="100"></canvas>
+      </div>
+    </div>
+
+    <!-- Per-Question Charts -->
+    {% if charts_data %}
+      <h4 class="mt-5 mb-3">Detailed Response Breakdown</h4>
+      <div id="chartContainers" class="row g-4">
+        <script id="charts-data" type="application/json">{{ charts_data|safe }}</script>
+      </div>
+    {% endif %}
+
+    <!-- Individual Responses -->
+    <h4 class="mt-5 mb-3">Individual Submissions</h4>
+    {% for response in responses %}
+      <div class="card mb-3 shadow-sm">
+        <div class="card-header">
+          Submitted at {{ response.submitted_at|date:"M d, Y H:i" }}
+        </div>
+        <div class="card-body">
+          {% for answer in response.answers.all %}
+            <p><strong>{{ answer.question.label }}:</strong> {{ answer.answer_text }}</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-info">No responses yet.</div>
+  {% endif %}
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+{% if responses %}
+  <!-- Inject JSON data -->
+  <script id="question-data" type="application/json">{{ questions|safe }}</script>
+  <script id="count-data" type="application/json">{{ response_counts|safe }}</script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Summary chart
+      const labels = JSON.parse(document.getElementById('question-data').textContent);
+      const dataCounts = JSON.parse(document.getElementById('count-data').textContent);
+
+      const ctx = document.getElementById('responseChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Number of Answers',
+            data: dataCounts,
+            backgroundColor: '#4e73df',
+            borderRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  return ` ${context.parsed.y} responses`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      // Per-question charts
+      const chartData = JSON.parse(document.getElementById('charts-data').textContent);
+      const container = document.getElementById('chartContainers');
+
+      chartData.forEach((q, index) => {
+        const col = document.createElement('div');
+        col.className = 'col-md-6';
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'questionChart_' + index;
+        canvas.height = 200;
+
+        const card = document.createElement('div');
+        card.className = 'card shadow-sm';
+        card.innerHTML = `
+          <div class="card-body">
+            <h6 class="card-title">${q.label}</h6>
+          </div>
+        `;
+        card.querySelector('.card-body').appendChild(canvas);
+        col.appendChild(card);
+        container.appendChild(col);
+
+        new Chart(canvas.getContext('2d'), {
+          type: q.chartType,
+          data: {
+            labels: q.options,
+            datasets: [{
+              label: 'Responses',
+              data: q.counts,
+              backgroundColor: q.chartType === 'pie'
+                ? ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b']
+                : '#1cc88a',
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: q.chartType === 'pie' }
+            },
+            scales: q.chartType === 'bar' ? {
+              y: { beginAtZero: true }
+            } : {}
+          }
+        });
+      });
+    });
+  </script>
+{% endif %}
+{% endblock %}
